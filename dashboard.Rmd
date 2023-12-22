@@ -1,0 +1,273 @@
+---
+title: "Project 4 Sam Fansler"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    source_code: embed
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+library(flexdashboard)
+library(tidycensus)
+library(tidyverse)
+library(scales)
+library(ggpubr)
+
+
+create_dir <- function(){
+  setwd(getwd())
+  data_dir <- "data"
+  
+  if(!file.exists(data_dir)){
+    dir.create(data_dir)
+  }
+}
+
+save_data_2010 <- function(){
+  data_path <- file.path("data", "il_2010.csv")
+  
+  if(!file.exists(data_path)){
+    data <- get_acs(geography = "county",
+                    variables = c(medincome = "B19013_001"),
+                    state = "IL",
+                    year = 2010)
+    write.csv(data, data_path)
+  }
+}
+
+load_data_2010 <- function(){
+  create_dir()
+  save_data_2010()
+  data_path <- file.path("data", "il_2010.csv")
+  data <- read.csv(data_path)
+  return(data)
+}
+
+save_data_2015 <- function(){
+  data_path <- file.path("data", "il_2015.csv")
+  
+  if(!file.exists(data_path)){
+    data <- get_acs(geography = "county",
+                    variables = c(medincome = "B19013_001"),
+                    state = "IL",
+                    year = 2015)
+    write.csv(data, data_path)
+  }
+}
+
+
+load_data_2015 <- function(){
+  create_dir()
+  save_data_2015()
+  data_path <- file.path("data", "il_2015.csv")
+  data <- read.csv(data_path)
+  return(data)
+}
+
+
+save_data_2020 <- function(){
+  data_path <- file.path("data", "il_2020.csv")
+  
+  if(!file.exists(data_path)){
+    data <- get_acs(geography = "county",
+                    variables = c(medincome = "B19013_001"),
+                    state = "IL",
+                    year = 2020)
+    write.csv(data, data_path)
+  }
+}
+
+load_data_2020 <- function(){
+  create_dir()
+  save_data_2020()
+  data_path <- file.path("data", "il_2020.csv")
+  data <- read.csv(data_path)
+  return(data)
+}
+
+il_2010 = load_data_2010()
+il_2015 = load_data_2015()
+il_2020 = load_data_2020()
+
+#Merging all the years into one dataset
+il_2010_year = il_2010 %>%
+  mutate(year = 2010)
+
+il_2015_year = il_2015 %>%
+  mutate(year = 2015)
+
+il_2020_year = il_2020 %>%
+  mutate(year = 2020)
+
+il = full_join(il_2010_year, full_join(il_2015_year, il_2020_year))
+```
+About
+=======================
+
+Column {data-height=10 data-width=200 .tabset .tab-fade}
+----------------------------------------------------
+
+The objective of this dashboard is to create an interactive experience for users to explore US census data from 2006-2020. The dashboard includes both static and interactive plots, as well as an example data analysis using the census data.
+
+The data can be obtained from the US Census Bureau using the tidycensus package. Details about how to use tidycensus to obtain the original data can be found at https://walker-data.com/tidycensus/.
+  
+Column {data-width = 650}
+---------------------------------
+<iframe
+    width="640"
+    height="480"
+    src="https://www.youtube.com/embed/eGlan7gsWSg"
+    frameborder="0"
+    allow="autoplay; encrypted-media"
+    allowfullscreen
+>
+</iframe>
+
+Data
+=======================
+
+Column {data-height=10 data-width=200 .tabset .tab-fade}
+------------------------------------
+
+### Data Origin
+The data used for this project come from the US Census Bureau, from 2006-2020. The data describe county-level median income in the state of Illinois. The time periods of data collection were from 2006-2010, 2011-2015, and 2016-2020. Because the data originate from samples of households in each county, each estimate of median income is paired with a margin of error. The data also include the final year of the 5-year period of collection (for example, 2010 for 2006-2010 period).
+
+```{r}
+DT::renderDataTable((
+  DT::datatable(il)))
+```
+
+Boxplots
+========================
+
+Column {data-height=10 data-width=400 .tabset .tab-fade}
+----------------------------------------
+
+### Boxplot of median income
+
+```{r}
+il %>%
+  mutate(year_group = ifelse(year == "2010", "2006-2010", ifelse(year == "2015", "2011-2015", "2016-2020"))) %>%
+  ggplot(aes(y = estimate)) + geom_boxplot() + scale_y_continuous(labels = label_comma()) + labs(x = "Years", y = "Median Income", title = "Boxplot of Median Income of Illinois Counties", caption = "Boxplot of Median Income of Illinois counties by the US Census Bureau from 2006-2020")+ theme_bw(base_size = 12) + scale_y_continuous(labels = label_currency(prefix = "$"))
+```
+
+### Boxplot of median income by years
+
+```{r}
+renderPlot({
+il %>%
+  mutate(year_group = ifelse(year == "2010", "2006-2010", ifelse(year == "2015", "2011-2015", "2016-2020"))) %>%
+  ggplot(aes(x = as.factor(year_group), y = estimate, group = as.factor(year_group))) + scale_y_continuous(labels = label_comma()) + geom_boxplot() + labs(x = "Years", y = "Median Income", title = "Boxplot of Median Income of Illinois Counties", subtitle = "By year group", caption = "Boxplot of Median Income of Illinois counties by year groupings by the US Census Bureau from 2006-2020")+ theme_bw(base_size = 20) + scale_y_continuous(labels = label_currency(prefix = "$"))
+})
+```
+
+Density Plot
+========================
+
+Column {data-height=25 data-width=200 .tabset .tab-fade}
+----------------------------------------
+
+### Density plot of Median Income
+```{r}
+
+renderPlot({
+il %>%
+  ggplot(aes(x = estimate)) + geom_density() + scale_x_continuous(labels = label_comma()) + labs(title = "Density plot of Median Income of Illinois counties", x = "Median Income", subtitle = "Years 2006-2020", caption = "Histogram of Median Income of Illinois counties from the US Census Bureau years 2006-2020") + theme_bw(base_size = 20) + scale_x_continuous(labels = label_currency(prefix = "$"))
+})
+
+
+```
+
+
+Interactive Histogram
+====================
+
+Column {data-height=25 data-width=100 .tabset .tab-fade}
+-------------------------------------------
+
+### Histogram of median income
+
+```{r}
+
+sliderInput(inputId = "nbin",
+            label = "Number of bins:",
+            min = 5,
+            max = 20,
+            value = 10)
+```
+Column {data-height=25 data-width=300 .tabset .tab-fade}
+------------------------------
+```{r}
+renderPlot({
+il %>%
+  mutate(year_group = ifelse(year == "2010", "2006-2010", ifelse(year == "2015", "2011-2015", "2016-2020"))) %>%
+  ggplot(aes(x = estimate)) + geom_histogram(color = "white", bins = input$nbin) + scale_x_continuous(labels = label_comma()) + labs(title = "Histogram of Median Income of Illinois counties", x = "Median Income", subtitle = "Years 2006-2020", caption = "Histogram of Median Income of Illinois counties from the US Census Bureau years 2006-2020") + facet_wrap(vars(year_group)) + theme_bw(base_size = 15) + scale_x_continuous(labels = label_currency(prefix = "$"))
+})
+```
+
+
+Interactive Line Graph
+===================
+
+Column {data-height=25 data-width=200 .tabset .tab-fade}
+-------------------------
+```{r, out.width="50%"}
+
+il_plot = il %>%
+  mutate(county = gsub(" County, Illinois", "", NAME))
+
+selectInput(inputId = "county_select", 
+              label = "Select a county to see the estimate and margin of error of median salary.",
+            choices = il_plot %>% 
+              pull(county) %>% 
+              unique() %>%
+              sort(), selected = "Adams")
+
+
+renderPlot({
+  il %>%
+    mutate(county = gsub(" County, Illinois", "", NAME)) %>%
+    filter(county == input$county_select)%>% 
+    mutate(year_group = ifelse(year == "2010", "2006-2010", ifelse(year == "2015", "2011-2015", "2016-2020"))) %>%
+  select(county, estimate, year, moe) %>%
+  ggplot(aes(x = year, y = estimate)) + geom_line() + geom_errorbar(aes(y = estimate, ymin = estimate-moe, ymax = estimate+moe), width = 0.25) + labs(x = "Years", y = "Median Income", title = paste("Median Income for",input$county_select, "County"), subtitle = "Years 2006-2010, 2011-2015, and 2016-2020", caption = paste("Median Income for",input$county_select, "County from 2006-2010, 2011-2015, and 2016-2020")) + scale_x_continuous(breaks = c(2010, 2015, 2020), labels = c("2006-2010", "2011-2015", "2016-2020")) + scale_y_continuous(labels = label_currency(prefix = "$")) + theme_bw(base_size = 20)
+})
+```
+
+# Analysis: Question/Figure
+
+
+## Column
+
+***Question***
+
+The question I am trying to answer with this analysis is whether median income of Illinois counties increases on average over time, across the three year groupings of the US Census. To answer this question, I will inspect a plot of median income over time for each Illinois county, as well as run a linear regression using median income as an outcome and time as the predictor. This page has the main plot, and the following page has the results of the linear regression
+
+***Main Figure***
+```{r}
+plot = il %>%
+  mutate(county = gsub(" County, Illinois", "", NAME),
+         year_group = ifelse(year == "2010", "2006-2010", ifelse(year == "2015", "2011-2015", "2016-2020"))) %>%
+  arrange(estimate) %>%
+  group_by(county) %>%
+  select(estimate, county, year_group, moe) %>%
+  ggplot(aes(x = estimate, y = reorder(county, estimate), color = as.factor(year_group), fill = as.factor(year_group))) + geom_errorbarh(aes(xmin = estimate - moe, xmax = estimate + moe)) + geom_point(color = "blue") + labs(x = "Median Income", y = "County", title = "Median Income (and Margin of Error) for Illinois Counties", subtitle = "Years 2006-2010", caption = "Median Income and margin of error for each Illinois county in the years 2006-2010") + scale_color_discrete(name = "Years") + scale_fill_discrete(name = "Years") + theme_bw(base_size = 20) + scale_x_continuous(labels = label_comma()) + scale_x_continuous(labels = label_currency(prefix = "$"))
+
+renderPlot({plot}, width = 1100, height = 1600)
+
+```
+
+The figure above shows that median income tends to increase over time in all Illinois counties. While there is some overlap between time periods for most counties, there seems to be a clear upward trend of median income. We will try to confirm this association using a linear regression on the next tab.
+
+# Analysis: Regression/Summary
+***Linear Regression***
+```{r}
+modsummary = summary(lm(estimate ~ as.factor(year), data = il))
+
+print(modsummary)
+```
+The linear regression using median income as the outcome and year grouping as the predictor confirmed the association between median income and time in Illinois counties, showing that the average median income in Illinois counties significantly increased from 2006-2010 to 2011-2015, as well as from 2006-2010 to 2016-2020.
+
+
